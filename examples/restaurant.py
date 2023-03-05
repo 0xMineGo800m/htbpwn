@@ -1,7 +1,7 @@
-from htbpwn.core.target import Target
-from htbpwn.custom.restaurant import RestaurantPwn
-from htbpwn.modules.get_libc_address import GetLibcAddress
-from htbpwn.modules.exec_shell import ExecShell
+from core.target import Target
+from custom.restaurant import RestaurantPwn
+from modules.get_libc_address import GetLibcAddress
+from modules.exec_shell import ExecShell
 
 if __name__ == '__main__':
     t = Target(pwn_target=RestaurantPwn)

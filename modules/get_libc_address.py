@@ -1,7 +1,7 @@
 from typing import Optional
 from loguru import logger
-from htbpwn.abstract.module import AbstractModule
-from htbpwn.core.target import Target, Method
+from abstract.module import AbstractModule
+from core.target import Target, Method
 from pwn import p64, u64
 
 

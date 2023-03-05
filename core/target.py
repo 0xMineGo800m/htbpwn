@@ -9,7 +9,7 @@ from pwnlib.context import context
 from pwnlib.util.cyclic import cyclic, cyclic_find
 from loguru import logger
 
-from htbpwn.abstract.pwntarget import PwnTarget
+from abstract.pwntarget import PwnTarget
 
 
 class Mode(enum.Enum):

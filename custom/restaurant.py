@@ -1,6 +1,6 @@
 from loguru import logger
 
-from htbpwn.abstract.pwntarget import PwnTarget
+from abstract.pwntarget import PwnTarget
 
 
 class RestaurantPwn(PwnTarget):

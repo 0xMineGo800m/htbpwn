@@ -1,5 +1,5 @@
-from htbpwn.abstract.module import AbstractModule
-from htbpwn.core.target import Target
+from abstract.module import AbstractModule
+from core.target import Target
 from pwn import p64
 from loguru import logger
 
