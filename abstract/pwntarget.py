@@ -1,9 +1,10 @@
 import abc
 from pwnlib.tubes.process import process
 from pwnlib.gdb import Gdb
+from core.logging import LoggableApp
 
 
-class PwnTarget(abc.ABC):
+class PwnTarget(abc.ABC, LoggableApp):
     @classmethod
     @abc.abstractmethod
     def main(cls, proc: process, payload: bytes, *args, **kwargs):

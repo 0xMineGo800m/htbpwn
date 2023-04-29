@@ -1,12 +1,9 @@
 import sqlite3
-import tempfile
 import typing
 from collections import Counter
 from typing import Optional
-
 import requests
-from loguru import logger
-from pwnlib.elf import ELF
+from core.logging import LoggableModule
 
 
 class LibcMetadata:
@@ -19,17 +16,17 @@ def default_filter(name: str):
     return True
 
 
-class LibcFinder:
+class LibcFinder(LoggableModule):
     api_url = 'https://libc.rip/api/find'
 
     @classmethod
     def find_lib(cls, functions: typing.List[typing.Tuple[str, int]], custom_filter: typing.Callable):
-        logger.info(f"Getting possible libc version from {cls.api_url}")
+        cls.logger.info(f"Getting possible libc version from {cls.api_url}")
         response = requests.post(cls.api_url, json={'symbols': dict((function, hex(address)[-4:]) for function, address in functions)})
         if response.ok:
             variants = response.json()
-            logger.info(f"Got {len(variants)} possible results (pre-filtering):")
-            logger.debug(', '.join(x['id'] for x in variants))
+            cls.logger.info(f"Got {len(variants)} possible results (pre-filtering):")
+            cls.logger.debug(', '.join(x['id'] for x in variants))
             return tuple(LibcMetadata(x['id'], x["download_url"]) for x in variants if custom_filter(x))
         return None
 

@@ -1,3 +1,5 @@
+import struct
+
 from pwnlib.tubes.process import process
 
 from abstract.pwntarget import PwnTarget

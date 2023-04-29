@@ -1,19 +1,22 @@
 import pathlib
 import re
-
 from pwnlib import gdb
+from core.logging import LoggableModule
 
 
-class GdbWrapper:
+class GdbWrapper(LoggableModule):
     def __init__(self, target: int|pathlib.Path|str):
         self._debugger = None
         if isinstance(target, int):
+            self.logger.debug(f'Attaching to pid {target}')
             pid, debugger = gdb.attach(target, api=True)
             self._debugger = GdbApi(debugger)
         elif isinstance(target, pathlib.Path):
+            self.logger.debug(f'Starting {target.absolute()} in gdb')
             proc = gdb.debug(str(target.absolute()), api=True)
             self._debugger = GdbApi(proc.gdb)
         elif isinstance(target, str):
+            self.logger.debug(f'Starting {target} in gdb')
             proc = gdb.debug(target, api=True)
             self._debugger = GdbApi(proc.gdb)
 
@@ -23,6 +26,7 @@ class GdbWrapper:
         raise ValueError()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.logger.debug(f'Closing gdb')
         self._debugger.quit()
 
 

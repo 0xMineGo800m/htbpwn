@@ -1,36 +1,36 @@
 import typing
-
 from pwn import ELF, ROP, remote, process
 from pwnlib.context import context
-from loguru import logger
-
+from core.logging import LoggableModule
 from core.generic_pwn import GenericPwn
 from core.target_config import Config, Mode
 from abstract.pwntarget import PwnTarget
 from pwn import p64
 
 
-class TargetBase:
+
+
+class TargetBase(LoggableModule):
     def reconnect(self):
         if self._config.mode == Mode.remote:
             self.process = remote(self._config.ip.exploded, self._config.port)
         elif self._config.mode == Mode.local:
             self.process = process(str(self._config.file.absolute()))
         else:
-            logger.critical(f"Unknown mode selected")
+            self.logger.critical(f"Unknown mode selected")
             exit(0)
 
     def __init__(self, config: Config, pwn_target: typing.Type[PwnTarget] = GenericPwn):
         context.log_level = 'error'
-        logger.info('Parsing command line arguments:')
+        self.logger.info('Parsing command line arguments:')
         if config.mode == Mode.remote:
-            logger.info(f"Starting in REMOTE mode. Target: {config.ip}:{config.port}")
+            self.logger.info(f"Starting in REMOTE mode. Target: {config.ip}:{config.port}")
             self.process = remote(config.ip.exploded, config.port)
         elif config.mode == Mode.local:
-            logger.info(f"Starting in LOCAL mode. Target: {config.file.absolute()}")
+            self.logger.info(f"Starting in LOCAL mode. Target: {config.file.absolute()}")
             self.process = process(str(config.file.absolute()))
         else:
-            logger.critical(f"Unknown mode selected")
+            self.logger.critical(f"Unknown mode selected")
             exit(0)
         self._gdb = None
         self._config = config
@@ -41,7 +41,7 @@ class TargetBase:
             self.libc_hint = config.libc
         self.libc = None
         if config.rop:
-            logger.info("Enabling ROP support")
+            self.logger.info("Enabling ROP support")
             self.rop = ROP(str(config.file.absolute()))
         else:
             self.rop = None
@@ -78,5 +78,5 @@ class TargetBase:
 
     def check_payload(self, payload: bytes):
         if any((x in self.illegal_symbols) for x in payload):
-            logger.critical("Found illegal symbol in the payload")
+            self.logger.critical("Found illegal symbol in the payload")
             exit(0)
