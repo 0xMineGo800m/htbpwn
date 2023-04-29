@@ -1,5 +1,4 @@
 import enum
-import threading
 import typing
 from typing import Optional
 from abstract.module import AbstractModule

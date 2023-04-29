@@ -1,9 +1,6 @@
-import enum
 import tempfile
 import typing
 from typing import Optional
-
-import requests
 from loguru import logger
 from pwnlib.elf import ELF
 
@@ -59,8 +56,6 @@ class GetLibcAddress(AbstractModule):
             return None
         result = u64(data.ljust(8, b'\0'))
         logger.success(f"Leaked libc address: {target_function_name}@{hex(result)}")
-        # cls.libc_update_base_address(target, [(print_function_name, result)])
-        # logger.success(f"libc.base@{hex(target.libc.address)}")
         return result
 
     @classmethod
