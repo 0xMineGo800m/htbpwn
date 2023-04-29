@@ -10,9 +10,21 @@ from pwnlib.util.cyclic import cyclic, cyclic_find
 
 from core.target_config import Config, Mode
 from core.targetbase import TargetBase
-from custom.casino import CasinoPwn
 from modules.find_function import FindFunction, Method
 from modules.get_libc_address import GetLibcAddress
+from pwnlib.tubes.process import process
+from abstract.pwntarget import PwnTarget
+
+
+class CasinoPwn(PwnTarget):
+    @classmethod
+    def main(cls, proc: process, payload: bytes, pwn_target, *args, **kwargs):
+        proc.clean(0.3)
+        proc.sendline(payload)
+
+    @classmethod
+    def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
+        return proc.recvline()
 
 
 def find_canary(debugger: gdb.Gdb):

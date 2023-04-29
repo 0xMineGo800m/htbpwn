@@ -6,7 +6,6 @@ from pwnlib import gdb
 
 from core.target_config import Config, Mode
 from core.targetbase import TargetBase
-from custom.auth_or_out import AuthOrOutPwn
 from pwn import p64, u64
 
 
@@ -20,10 +19,7 @@ if __name__ == '__main__':
         offset=0x48,
         libc='libc6_2.31-13+deb11u5_amd64'
     )
-    t = TargetBase(pwn_target=AuthOrOutPwn, config=remote_config)
-    # _, debugger = gdb.attach(t.process.pid, api=True)
-    # debugger.execute('break _dl_fixup')
-    # debugger.execute('c')
+    t = TargetBase(config=remote_config)
 
     dynstr = t.file.get_section_by_name('.dynstr').header.sh_addr
     dynsym = t.file.get_section_by_name('.dynsym').header.sh_addr

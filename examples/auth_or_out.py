@@ -2,13 +2,24 @@ import dataclasses
 import ipaddress
 import pathlib
 from loguru import logger
+from pwnlib.tubes.process import process
+
+from abstract.pwntarget import PwnTarget
 from core.target_config import Config, Mode
 from core.targetbase import TargetBase
-from custom.auth_or_out import AuthOrOutPwn
 from pwn import p64, u64
-
 from modules.find_function import FindFunction, Method
 from modules.get_libc_address import GetLibcAddress
+
+
+class AuthOrOutPwn(PwnTarget):
+    @classmethod
+    def main(cls, proc: process, payload: bytes, *args, **kwargs):
+        proc.sendline(payload)
+
+    @classmethod
+    def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
+        proc.recvline()
 
 
 @dataclasses.dataclass

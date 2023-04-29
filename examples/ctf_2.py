@@ -1,12 +1,9 @@
-import dataclasses
 import ipaddress
 import pathlib
 from loguru import logger
-from pwnlib import gdb
 
 from core.target_config import Config, Mode
 from core.targetbase import TargetBase
-from custom.auth_or_out import AuthOrOutPwn
 from pwn import p64, u64
 
 from modules.find_function import FindFunction, Method
@@ -22,7 +19,7 @@ if __name__ == '__main__':
         offset=0x38,
         libc='libc6_2.35-0ubuntu3.1_amd64'
     )
-    t = TargetBase(pwn_target=AuthOrOutPwn, config=remote_config)
+    t = TargetBase(config=remote_config)
     # _, debugger = gdb.attach(t.process.pid, api=True)
     # debugger.execute('break execv')
     # debugger.execute('c')

