@@ -35,7 +35,7 @@ class TargetBase(LoggableModule):
         self._gdb = None
         self._config = config
         self.file = ELF(config.file)
-        self.leave = False
+        self.leave = config.leave
         self.libc_hint = None
         if config.libc:
             self.libc_hint = config.libc
@@ -48,10 +48,9 @@ class TargetBase(LoggableModule):
 
         self.pwn_target = pwn_target
         if config.no_offset:
-            self.offset = None
+            self.offset = 0
         else:
             self.offset = config.offset
-        self.offset = config.offset
         self.canary = None
         if config.main_function_address:
             self._main = config.main_function_address

@@ -33,6 +33,7 @@ class Config:
 
     illegal_symbols: bytes = b''
 
+    leave: bool = True  # add rpb to the generated payload
     @staticmethod
     def from_args():
         parser = argparse.ArgumentParser()
@@ -58,7 +59,10 @@ class Config:
         remote_parser.add_argument('file', type=pathlib.Path)
 
         libc_parser = parser.add_mutually_exclusive_group(required=True)
-        libc_parser.add_argument('-libc', '-l', type=str)
-        libc_parser.add_argument('-detect-libc', '-L', action='store_true')
+        libc_parser.add_argument('--libc', '-l', type=str)
+        libc_parser.add_argument('--detect-libc', '-L', action='store_true')
+
+        libc_parser.add_argument('--no-leave', action='store_false', destination='leave')
+
 
         return parser.parse_args()
