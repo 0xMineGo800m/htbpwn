@@ -37,6 +37,7 @@ class TargetBase(LoggableModule):
         self.file = ELF(config.file)
         self.leave = config.leave
         self.libc_hint = None
+        self.base_address_fix = 0
         if config.libc:
             self.libc_hint = config.libc
         self.libc = None
@@ -79,3 +80,8 @@ class TargetBase(LoggableModule):
         if any((x in self.illegal_symbols) for x in payload):
             self.logger.critical("Found illegal symbol in the payload")
             exit(0)
+
+    def update_base_address(self, base_address: int):
+        self.logger.info(f"Updating base address to {hex(base_address)}")
+        self.file.address = base_address
+        self.base_address_fix = base_address

