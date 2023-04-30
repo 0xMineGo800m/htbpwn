@@ -31,7 +31,7 @@ class LibcFinder(LoggableModule):
         return None
 
 
-class LocalLibcFinder:
+class LocalLibcFinder(LoggableModule):
     db_path = '/opt/libcdb/libc.db'
 
     sizes = {
@@ -42,7 +42,7 @@ class LocalLibcFinder:
 
     @classmethod
     def get_lib_by_name(cls, name: str, functions: typing.List[typing.Tuple[str, int]]):
-        logger.info(f"Getting possible libc version from {cls.db_path}")
+        cls.logger.info(f"Getting possible libc version from {cls.db_path}")
         connection = sqlite3.connect(cls.db_path)
         cursor = connection.cursor()
         cursor.execute('select data, id from libc where name=?', (name,))
@@ -62,12 +62,12 @@ class LocalLibcFinder:
         cursor.close()
         connection.close()
         if not all(b == bases[0] for b in bases):
-            logger.warning('bases are not equal')
+            cls.logger.warning('bases are not equal')
         return result[0], bases[0]
 
     @classmethod
     def find_lib(cls, functions: typing.List[typing.Tuple[str, int]], custom_filter: typing.Callable):
-        logger.info(f"Getting possible libc version from {cls.db_path}")
+        cls.logger.info(f"Getting possible libc version from {cls.db_path}")
         connection = sqlite3.connect(cls.db_path)
         cursor = connection.cursor()
         function_addresses = {}
@@ -103,10 +103,10 @@ class LocalLibcFinder:
             cursor.execute('select name,data from libc where id=?', (choice,))
             result = cursor.fetchone()
             if not custom_filter(result[0]):
-                logger.info(f'skipping: {result[0]} because of filter')
+                cls.logger.info(f'skipping: {result[0]} because of filter')
                 continue
             results[result[0]] = result[1], bases[choice]
-            logger.info(f"possible libc: {result[0]}@{hex(bases[choice])}, confidence {(possible_choices[choice]+1)/len(functions)}")
+            cls.logger.info(f"possible libc: {result[0]}@{hex(bases[choice])}, confidence {(possible_choices[choice]+1)/len(functions)}")
         cursor.close()
         connection.close()
         return results

